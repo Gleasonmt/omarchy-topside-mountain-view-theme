@@ -102,12 +102,26 @@ void main() {
   vec2 pS = z + cam * .08, pF = z + cam * .16, pO = z + cam * .6, pN = z + cam;
   vec2 pD = z + cam * .4;                  // the drone flies between valley and cliff
 
+  // Where the near ledge is solid (its grass sways at most a few pixels),
+  // nothing behind it shows: skip drawing it. Each effect below also only
+  // runs where it can show, so the GPU isn't busy with the whole screen.
+  // (worked out before any of those branches: a GPU takes texture detail
+  // levels and pixel sizes from neighbouring pixels, which a branch can leave
+  // out at its edges)
+  float pxPic = max(fwidth(z.x), .3);          // a screen pixel, in picture pixels
+  vec2 skyDx = dFdx(tuv(pS)), skyDy = dFdy(tuv(pS));
+  float solidNear = min(texture(layer3, tuv(pN)).a, min(texture(layer3, tuv(pN + vec2(6., 0.))).a, texture(layer3, tuv(pN - vec2(6., 0.))).a));
+  vec3 col = vec3(0.);
+  if (solidNear < .999) {
+
   // ---- sky: clouds travel (two-phase scroll), stars twinkle, a shooting star ----
-  vec3 col = texture(source, tuv(pS)).rgb;
+  col = textureGrad(source, tuv(pS), skyDx, skyDy).rgb;
   float cloudBand = smoothstep(345., 300., pS.y) * smoothstep(140., 200., pS.y) * (1. - detail);
-  float ph = fract(t * .02);
-  vec3 sky1 = texture(source, tuv(pS - vec2(ph * 60., 0.))).rgb, sky2 = texture(source, tuv(pS - vec2(fract(ph + .5) * 60., 0.))).rgb;
-  col = mix(col, mix(sky2, sky1, 1. - abs(2. * ph - 1.)), cloudBand);
+  if (cloudBand > 0.) {
+    float ph = fract(t * .02);
+    vec3 sky1 = textureGrad(source, tuv(pS - vec2(ph * 60., 0.)), skyDx, skyDy).rgb, sky2 = textureGrad(source, tuv(pS - vec2(fract(ph + .5) * 60., 0.)), skyDx, skyDy).rgb;
+    col = mix(col, mix(sky2, sky1, 1. - abs(2. * ph - 1.)), cloudBand);
+  }
   float slum = dot(col, vec3(.3, .55, .15));
   float star = smoothstep(.45, .7, slum) * smoothstep(210., 120., pS.y) * (1. - box(pS, vec4(255., 100., 300., 145.), 6.));
   vec2 sc = floor(pS / 3.);
@@ -145,13 +159,15 @@ void main() {
   float fogPix = smoothstep(.18, .3, flum) * smoothstep(400., 440., pF.y) * (1. - detail);
   // (a drifting veil of light over the fog, not a sliding copy of the layer:
   // a copy would carry the mesas' lit faces along with it as ghosts)
-  float veil = fbm(vec2(pF.x * .011 - t * .045, pF.y * .045 + fbm(pF * .006 + t * .02)));
-  fc += vec3(.05, .045, .065) * (veil - .45) * 2.2 * fogPix;
+  if (fogPix > 0.) {
+    float veil = fbm(vec2(pF.x * .011 - t * .045, pF.y * .045 + fbm(pF * .006 + t * .02)));
+    fc += vec3(.05, .045, .065) * (veil - .45) * 2.2 * fogPix;
+  }
   col = mix(col, fc, far.a);
-  {
+  if (far.a > 0. && pF.x > 620. && pF.x < 960. && pF.y > 440. && pF.y < 700.) {
     vec2 p = pF;
     vec3 light = vec3(0.);
-    float px = max(fwidth(p.x), .3);                         // a screen pixel, in picture pixels
+    float px = pxPic;
     float L = roadLength();
     for (int k = 0; k < 4; k++) {
       float fk = float(k);
@@ -184,18 +200,22 @@ void main() {
     }
     col += light * far.a;
   }
-  float wisps = fbm(vec2(pF.x * .007 - t * .06, pF.y * .028) + vec2(fbm(pF * .006 + vec2(t * .03, 0.)) * 1.5, 0.));
-  col = mix(col, vec3(.64, .57, .76), smoothstep(.42, .8, wisps) * .3 * smoothstep(405., 450., pF.y) * far.a * (1. - detail));
+  if (pF.y > 405. && far.a > 0. && detail < .5) {
+    float wisps = fbm(vec2(pF.x * .007 - t * .06, pF.y * .028) + vec2(fbm(pF * .006 + vec2(t * .03, 0.)) * 1.5, 0.));
+    col = mix(col, vec3(.64, .57, .76), smoothstep(.42, .8, wisps) * .3 * smoothstep(405., 450., pF.y) * far.a * (1. - detail));
+  }
 
   // ---- the drone, between the valley and the cliff ----
   {
     vec2 p = pD;
     float a = t * .11;
     vec2 dp = vec2(830. + 150. * sin(a), 420. + 14. * sin(a * 2.) + 1.5 * sin(t * 1.3));
+    // (its spot sways up to 100 to either side and 140 below it)
+    if (abs(p.x - dp.x) < 170. && p.y > dp.y - 30. && p.y < dp.y + 230.) {
     float bank = cos(a) * .22;                               // tilts into its turns
     vec2 q = p - dp;
     q = mat2(cos(bank), -sin(bank), sin(bank), cos(bank)) * q;
-    float px = max(fwidth(p.x), .3);
+    float px = pxPic;
     float aa = px * .9;
     // body: a rounded shell, a darker underside, the camera gimbal below
     float shell = length(q / vec2(4.2, 1.9)) - 1.;
@@ -236,8 +256,9 @@ void main() {
     float beam = smoothstep(width, 0., length(p - lamp - sv * along)) * step(0., dot(p - lamp, sv)) * step(dot(p - lamp, sv), dot(sv, sv));
     float spotLit = exp(-length((p - spot) * vec2(1., 2.2)) / 14.);
     float behind = 1.;   // the near ledge is drawn over it anyway
-    col += vec3(1., .95, .85) * (beam * .1 * (.6 + .4 * fbm(p * .05 + t * .3)) + spotLit * .5) * behind;
+    col += vec3(1., .95, .85) * (beam > 0. ? beam * .1 * (.6 + .4 * fbm(p * .05 + t * .3)) : 0.) * behind + vec3(1., .95, .85) * spotLit * .5 * behind;
     col += vec3(1., .97, .9) * exp(-length(p - lamp) / 1.1) * 1.4;
+    }
   }
 
   // ---- the outpost: cliff, ruins, the mast with its guy wires and light ----
@@ -245,7 +266,7 @@ void main() {
   col = over(col, outp);
   {
     vec2 p = pO;
-    float px = max(fwidth(p.x), .3);
+    float px = pxPic;
     // guy wires from the mast down to the cliff (the painted ones stayed in the sky)
     vec2 top = vec2(1266., 130.), mid = vec2(1266., 230.);
     float wires = min(min(seg(p, top, vec2(1170., 362.)), seg(p, top, vec2(1388., 370.))),
@@ -274,14 +295,20 @@ void main() {
     float cx = 1152. - h * .45 - 4. * sin(h * .05 - t * .6);
     float wdt = 2. + h * .12;
     float plume = smoothstep(wdt, 0., abs(p.x - cx)) * smoothstep(0., 6., h) * smoothstep(130., 30., h);
-    float puffs = fbm(vec2((p.x - cx) * .15, h * .06 - t * .5));
-    col = mix(col, vec3(.42, .38, .46), plume * smoothstep(.35, .75, puffs) * .3 * (1. - detail * .0));
+    if (plume > 0.) {
+      float puffs = fbm(vec2((p.x - cx) * .15, h * .06 - t * .5));
+      col = mix(col, vec3(.42, .38, .46), plume * smoothstep(.35, .75, puffs) * .3 * (1. - detail * .0));
+    }
   }
 
   // ---- low mist drifting in front of the cliff (between it and the ledge) ----
   vec2 pM = z + cam * .8;
-  float mist = fbm(vec2(pM.x * .01 - t * .08, pM.y * .04) + vec2(fbm(pM * .008 - t * .02), 0.));
-  col = mix(col, vec3(.6, .53, .72), smoothstep(.5, .85, mist) * smoothstep(440., 520., pM.y) * smoothstep(672., 600., pM.y) * .3 * (1. - detail));
+  if (pM.y > 440. && pM.y < 672. && detail < .5) {
+    float mist = fbm(vec2(pM.x * .01 - t * .08, pM.y * .04) + vec2(fbm(pM * .008 - t * .02), 0.));
+    col = mix(col, vec3(.6, .53, .72), smoothstep(.5, .85, mist) * smoothstep(440., 520., pM.y) * smoothstep(672., 600., pM.y) * .3 * (1. - detail));
+  }
+
+  }   // (behind the near ledge)
 
   // ---- the near ledge and the scout: grass sways, the coat flaps ----
   vec2 off = vec2(0.);
