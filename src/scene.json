@@ -1,0 +1,6 @@
+{
+  "painted": true,
+  "plate": "0-sky.png",
+  "layers": ["1-far.png", "2-outpost-cliff.png", "3-ledge.png", "4-standing.png"],
+  "video": "scout.mp4"
+}

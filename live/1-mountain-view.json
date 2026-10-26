@@ -1,0 +1,38 @@
+{
+  "still": 0,
+  "painted": true,
+  "plate": "0-sky.png",
+  "layers": [
+    "1-far.png",
+    "2-outpost-cliff.png",
+    "3-ledge.png",
+    "4-standing.png"
+  ],
+  "video": "scout.mp4",
+  "details": [
+    [
+      0.58,
+      0.27,
+      0.88,
+      0.5
+    ],
+    [
+      -0.3,
+      -0.33,
+      0.5,
+      0.02
+    ],
+    [
+      -0.15,
+      -0.5,
+      0.2,
+      -0.2
+    ],
+    [
+      -0.95,
+      -0.35,
+      -0.68,
+      -0.04
+    ]
+  ]
+}
