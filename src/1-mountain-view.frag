@@ -328,16 +328,27 @@ void main() {
   const vec4 CELL_BOX = vec4(-10.5, 389., 315.25, 582.);
   vec4 box4 = detail > .5 ? STAND_BOX : CELL_BOX;
   vec2 lu = (pN - box4.xy) / (box4.zw - box4.xy);
+  // He's drawn 2-3 times smaller than his video and picture, so one sample a
+  // pixel would skip most of them and his edges would stair-step and shimmer:
+  // average a 3x3 grid across each pixel instead (its spacing worked out
+  // here, outside the branch).
+  vec2 ldx = dFdx(lu) / 3., ldy = dFdy(lu) / 3.;
   if (all(greaterThanEqual(lu, vec2(0.))) && all(lessThan(lu, vec2(1.)))) {
-    vec4 scout;
-    if (detail > .5) scout = texture(layer4, lu);
-    else {
-      vec2 inset = vec2(1. / 1392., 0.);
-      vec3 c = texture(video, vec2(clamp(lu.x * .5, inset.x, .5 - inset.x), lu.y)).rgb;
-      float a = smoothstep(.06, .9, texture(video, vec2(.5 + clamp(lu.x * .5, inset.x, .5 - inset.x), lu.y)).r);
-      scout = vec4(c * a, a);
-    }
-    col = over(col, scout);
+    vec4 scout = vec4(0.);
+    for (int i = -1; i <= 1; i++)
+      for (int j = -1; j <= 1; j++) {
+        vec2 q = lu + float(i) * ldx + float(j) * ldy;
+        if (detail > .5) scout += texture(layer4, q);
+        else {
+          // colour | mask side by side; the mask's edge is pulled in a
+          // little so the green screen's thin outline doesn't show as a rim
+          float x = clamp(q.x * .5, 1. / 1392., .5 - 1. / 1392.);
+          vec3 c = texture(video, vec2(x, q.y)).rgb;
+          float a = smoothstep(.3, .95, texture(video, vec2(.5 + x, q.y)).r);
+          scout += vec4(c * a, a);
+        }
+      }
+    col = over(col, scout / 9.);
   }
 
   // ---- dust blowing across the foreground ----
