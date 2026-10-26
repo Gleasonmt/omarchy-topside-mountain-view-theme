@@ -58,6 +58,31 @@ The painting and the scout's movement were made with AI image and video models, 
 cut into layers, cleaned up and animated by hand. The look is inspired by films and
 games; no logos or characters are used.
 
+## Performance
+
+Measured on a Dell Latitude 9520 (Intel Iris Xe graphics, 8 threads) driving a 3440×1440
+monitor, plugged in, with the plugin's default 30 fps. The wallpaper pauses whenever a window
+covers the screen, so these are the costs while it's actually visible:
+
+| Mode | GPU used | Wallpaper CPU | Compositor CPU |
+|---|---|---|---|
+| Still (plugin off) | ~0% | 2% | 4% |
+| **Topside Mountain View Lite** | ~7% | 10% | 8% |
+| Topside Mountain View, half resolution | ~11% | 9% | 8% |
+| **Topside Mountain View** | ~50% | 8% | 6% |
+
+*GPU used* is how busy the GPU was, weighted by its clock speed against its maximum
+(1350 MHz here). *CPU* is a share of one core. Full motion is the heaviest: the scene is
+drawn fresh at full resolution about 30 times a second, which works the GPU hard and
+costs battery. Lite and half resolution are far lighter, and look nearly the same
+from a normal distance.
+
+On battery the plugin draws at half resolution and 10 fps by default (plugin 1.1.2 or
+later: run `omarchy plugin update`). To use half resolution plugged in too, set
+`"renderScale": 0.5` in `~/.config/omarchy/live-wallpaper.json` (see the
+[plugin's README](https://github.com/Gleasonmt/omarchy-live-wallpaper)), or pick
+**Topside Mountain View Lite** for the lightest moving version.
+
 ## Making changes
 
 The scene is `src/1-mountain-view.frag` (with `src/common.glsl`); `src/scene.json` lists
