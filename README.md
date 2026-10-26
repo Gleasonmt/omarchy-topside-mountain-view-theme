@@ -67,15 +67,15 @@ covers the screen, so these are the costs while it's actually visible:
 | Mode | GPU used | Wallpaper CPU | Compositor CPU |
 |---|---|---|---|
 | Still (plugin off) | ~0% | 2% | 4% |
-| **Topside Mountain View Lite** | ~7% | 10% | 8% |
-| Topside Mountain View, half resolution | ~11% | 9% | 8% |
-| **Topside Mountain View** | ~50% | 8% | 6% |
+| **Topside Mountain View Lite** | ~2% | 10% | 8% |
+| Topside Mountain View, half resolution | ~2% | 9% | 8% |
+| Topside Mountain View, 15 fps | ~3.5% | 8% | 8% |
+| **Topside Mountain View** | ~9% | 9% | 8% |
 
 *GPU used* is how busy the GPU was, weighted by its clock speed against its maximum
-(1350 MHz here). *CPU* is a share of one core. Full motion is the heaviest: the scene is
-drawn fresh at full resolution about 30 times a second, which works the GPU hard and
-costs battery. Lite and half resolution are far lighter, and look nearly the same
-from a normal distance.
+(1350 MHz here). *CPU* is a share of one core. The scene only works out each effect
+(fog, convoy, drone, mist) where it can be seen, and redraws once per frame, so even
+full motion at full resolution is light; Lite and half resolution are lighter still.
 
 On battery the plugin draws at half resolution and 10 fps by default (plugin 1.1.2 or
 later: run `omarchy plugin update`). To use half resolution plugged in too, set
