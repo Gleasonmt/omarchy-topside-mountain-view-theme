@@ -294,14 +294,18 @@ void main() {
   // the plugin at 24 fps: he stands with his coat in the wind, then kneels to
   // watch the road through binoculars, stands, readies his rifle and walks
   // off the ledge; then he walks back on (a 2-minute loop). In Lite (and the
-  // still) he only stands. Box: what the clip covers, in picture pixels.
-  const vec4 CELL_BOX = vec4(70., 389., 315.25, 582.);
-  vec2 lu = (pN - CELL_BOX.xy) / (CELL_BOX.zw - CELL_BOX.xy);
+  // still) he only stands. Boxes: what the standing picture and the clip
+  // cover, in picture pixels. The clip reaches past the picture's left edge,
+  // so on wide screens he walks right off it instead of out of his box.
+  const vec4 STAND_BOX = vec4(70., 389., 315.25, 582.);
+  const vec4 CELL_BOX = vec4(-10.5, 389., 315.25, 582.);
+  vec4 box4 = detail > .5 ? STAND_BOX : CELL_BOX;
+  vec2 lu = (pN - box4.xy) / (box4.zw - box4.xy);
   if (all(greaterThanEqual(lu, vec2(0.))) && all(lessThan(lu, vec2(1.)))) {
     vec4 scout;
     if (detail > .5) scout = texture(layer4, lu);
     else {
-      vec2 inset = vec2(1. / 1048., 0.);
+      vec2 inset = vec2(1. / 1392., 0.);
       vec3 c = texture(video, vec2(clamp(lu.x * .5, inset.x, .5 - inset.x), lu.y)).rgb;
       float a = smoothstep(.06, .9, texture(video, vec2(.5 + clamp(lu.x * .5, inset.x, .5 - inset.x), lu.y)).r);
       scout = vec4(c * a, a);
